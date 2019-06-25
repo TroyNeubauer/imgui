@@ -934,6 +934,30 @@ CODE
 
 */
 
+
+
+
+////============================================================================================
+//CHANGE MADE BY Troy
+//Added file open/close tracker functions and malloc/free functions for Hazel. Added on 6/24/2019
+////============================================================================================
+#include <stdio.h>
+#ifdef HZ_DEBUG
+    extern FILE* Log_fopen(FILE* result, const char* path, const char* mode, const char* sourceFile, int line);
+    extern int Log_fclose(FILE* file, int result, const char* sourceFile, int line);
+#elif defined(HZ_RELEASE)
+    extern FILE* Log_fopen(FILE* result, const char* path);
+    extern int Log_fclose(FILE* file, int result);
+#endif
+
+void* AllocTracker_Allocate(size_t bytes);
+void AllocTracker_Free(void* ptr);
+
+
+
+
+
+
 #if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -1087,20 +1111,7 @@ static void             UpdateViewportPlatformMonitor(ImGuiViewportP* viewport);
 ImGuiContext*   GImGui = NULL;
 #endif
 
-// Memory Allocator functions. Use SetAllocatorFunctions() to change them.
-// If you use DLL hotreloading you might need to call SetAllocatorFunctions() after reloading code from this file.
-// Otherwise, you probably don't want to modify them mid-program, and if you use global/static e.g. ImVector<> instances you may need to keep them accessible during program destruction.
-#ifndef IMGUI_DISABLE_DEFAULT_ALLOCATORS
-static void*   MallocWrapper(size_t size, void* user_data)    { IM_UNUSED(user_data); return malloc(size); }
-static void    FreeWrapper(void* ptr, void* user_data)        { IM_UNUSED(user_data); free(ptr); }
-#else
-static void*   MallocWrapper(size_t size, void* user_data)    { IM_UNUSED(user_data); IM_UNUSED(size); IM_ASSERT(0); return NULL; }
-static void    FreeWrapper(void* ptr, void* user_data)        { IM_UNUSED(user_data); IM_UNUSED(ptr); IM_ASSERT(0); }
-#endif
 
-static void*  (*GImAllocatorAllocFunc)(size_t size, void* user_data) = MallocWrapper;
-static void   (*GImAllocatorFreeFunc)(void* ptr, void* user_data) = FreeWrapper;
-static void*    GImAllocatorUserData = NULL;
 
 //-----------------------------------------------------------------------------
 // [SECTION] MAIN USER FACING STRUCTURES (ImGuiStyle, ImGuiIO)
@@ -1554,6 +1565,13 @@ ImU32 ImHashStr(const char* data_p, size_t data_size, ImU32 seed)
     return ~crc;
 }
 
+
+////============================================================================================
+//CHANGE MADE BY Troy
+//Added calls to Log_fopen/Log_fclose when a file is opened/closed in order to track all open files. 
+//Changed on 6/24/2019
+////============================================================================================
+
 FILE* ImFileOpen(const char* filename, const char* mode)
 {
 #if defined(_WIN32) && !defined(__CYGWIN__) && !defined(__GNUC__)
@@ -1564,11 +1582,33 @@ FILE* ImFileOpen(const char* filename, const char* mode)
     buf.resize(filename_wsize + mode_wsize);
     ImTextStrFromUtf8(&buf[0], filename_wsize, filename, NULL);
     ImTextStrFromUtf8(&buf[filename_wsize], mode_wsize, mode, NULL);
+ #ifdef HZ_DEBUG
+    return Log_fopen(_wfopen((wchar_t*)&buf[0], (wchar_t*)&buf[filename_wsize]), filename, mode, __FILE__, __LINE__);
+  #elif defined(HZ_RELEASE)
+    return Log_fopen(_wfopen((wchar_t*)&buf[0], (wchar_t*)&buf[filename_wsize]), filename);
+  #else
     return _wfopen((wchar_t*)&buf[0], (wchar_t*)&buf[filename_wsize]);
+  #endif
 #else
+  #ifdef HZ_DEBUG
+    return Log_fopen(fopen(filename, mode), filename, mode, __FILE__, __LINE__);
+  #elif defined(HZ_RELEASE)
+    return Log_fopen(fopen(filename, mode), filename);
+  #else
     return fopen(filename, mode);
+  #endif
+
 #endif
 }
+
+//Override fclose with our wrapper that calls Log_fclose
+#ifdef HZ_DEBUG
+  #define fclose(file) Log_fclose(file, fclose(file), __FILE__, __LINE__)
+#elif defined(HZ_RELEASE)
+  #define fclose(file) Log_fclose(file, fclose(file))
+#else
+  //Dont track file open/closes
+#endif
 
 // Load file content into memory
 // Memory allocated with ImGui::MemAlloc(), must be freed by user using ImGui::MemFree()
@@ -3024,11 +3064,22 @@ float ImGui::CalcWrapWidthForPos(const ImVec2& pos, float wrap_pos_x)
     return ImMax(wrap_pos_x - pos.x, 1.0f);
 }
 
+
+////============================================================================================
+//CHANGE MADE BY Troy
+//Changed MemAlloc/MemFree to call AllocTracker_Allocate/AllocTracker_Free for all of imgui's allocations/frees
+//Added on 6/24/2019
+////============================================================================================
+
 void* ImGui::MemAlloc(size_t size)
 {
     if (ImGuiContext* ctx = GImGui)
         ctx->IO.MetricsActiveAllocations++;
-    return GImAllocatorAllocFunc(size, GImAllocatorUserData);
+#ifdef HZ_DIST
+    return malloc(size);
+#else
+    return AllocTracker_Allocate(size);
+#endif
 }
 
 void ImGui::MemFree(void* ptr)
@@ -3036,7 +3087,11 @@ void ImGui::MemFree(void* ptr)
     if (ptr)
         if (ImGuiContext* ctx = GImGui)
             ctx->IO.MetricsActiveAllocations--;
-    return GImAllocatorFreeFunc(ptr, GImAllocatorUserData);
+#ifdef HZ_DIST
+    return free(ptr);
+#else
+    return AllocTracker_Free(ptr);
+#endif
 }
 
 const char* ImGui::GetClipboardText()
@@ -3087,9 +3142,16 @@ bool ImGui::DebugCheckVersionAndDataLayout(const char* version, size_t sz_io, si
 
 void ImGui::SetAllocatorFunctions(void* (*alloc_func)(size_t sz, void* user_data), void (*free_func)(void* ptr, void* user_data), void* user_data)
 {
+////============================================================================================
+//CHANGE MADE BY Troy
+//The following code was commanted on 6/24/2019 to force imgui to use Hazel's allocator
+////============================================================================================
+
+    /*
     GImAllocatorAllocFunc = alloc_func;
     GImAllocatorFreeFunc = free_func;
     GImAllocatorUserData = user_data;
+    */
 }
 
 ImGuiContext* ImGui::CreateContext(ImFontAtlas* shared_font_atlas)
@@ -9881,6 +9943,13 @@ void ImGui::SaveIniSettingsToDisk(const char* ini_filename)
     fwrite(ini_data, sizeof(char), ini_data_size, f);
     fclose(f);
 }
+
+////============================================================================================
+//CHANGE MADE BY Troy
+//Last instance of fclose. Undefine it so that this doesnt conflict with other files.
+//Added on 6/24/2019
+////============================================================================================
+#undef fclose
 
 // Call registered handlers (e.g. SettingsHandlerWindow_WriteAll() + custom handlers) to write their stuff into a text buffer
 const char* ImGui::SaveIniSettingsToMemory(size_t* out_size)
