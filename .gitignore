@@ -8,3 +8,5 @@ bin-int/
 
 **/.project
 **/.workspace
+
+ImGui.vcxproj

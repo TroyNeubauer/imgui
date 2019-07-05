@@ -3,18 +3,16 @@ project "ImGui"
 	language "C++"
 	cppdialect "C++17"
 	staticruntime "on"
-	
-	targetdir ("bin/" .. outputdir .. "/%{prj.name}")
-	objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
+    systemversion "latest"
+
+	targetdir ("../../../bin/" .. outputdir .. "/%{prj.name}")
+	objdir ("../../../bin-int/" .. outputdir .. "/%{prj.name}")
 
 	files
 	{
 		"./*.h",
 		"./*.cpp"
 	}
-	
-	filter "system:windows"
-		systemversion "latest"
 
 
 	filter "configurations:Debug"
@@ -25,9 +23,12 @@ project "ImGui"
 	filter "configurations:Release"
 		defines "HZ_RELEASE"
 		runtime "Release"
-		optimize "on"
+		optimize "speed"
+		inlining "auto"
 
 	filter "configurations:Dist"
 		defines "HZ_DIST"
 		runtime "Release"
-		optimize "on"
+		optimize "speed"
+		inlining "auto"
+
