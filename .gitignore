@@ -8,3 +8,7 @@ bin-int/
 
 **/.project
 **/.workspace
+
+#VS
+**/*.vcxproj*
+
