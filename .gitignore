@@ -12,3 +12,4 @@ bin-int/
 #VS
 **/*.vcxproj*
 
+Makefile
