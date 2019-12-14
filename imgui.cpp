@@ -817,6 +817,8 @@ void AllocTracker_Free(void* ptr);
 
 #ifndef HAZEL
 
+#include <cstdlib>
+
 void* AllocTracker_Allocate(size_t bytes)
 {
 	return malloc(bytes);
