@@ -793,6 +793,20 @@ CODE
 void* AllocTracker_Allocate(size_t bytes);
 void AllocTracker_Free(void* ptr);
 
+#ifndef HAZEL
+
+void* AllocTracker_Allocate(size_t bytes)
+{
+	return malloc(bytes);
+}
+
+void AllocTracker_Free(void* ptr)
+{
+	free(ptr);
+}
+
+#endif
+
 
 
 
