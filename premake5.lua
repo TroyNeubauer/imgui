@@ -2,7 +2,6 @@ project "ImGui"
 	kind "StaticLib"
 	language "C++"
 	cppdialect "C++17"
-	staticruntime "on"
     systemversion "latest"
 
 	targetdir ("../../../bin/" .. outputdir .. "/%{prj.name}")
