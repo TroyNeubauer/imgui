@@ -13,3 +13,7 @@ bin-int/
 **/*.vcxproj*
 
 Makefile
+**/*.xcodeproj
+**/*.xcworkspace
+
+**/.DS_Store
