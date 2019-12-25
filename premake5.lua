@@ -13,21 +13,9 @@ project "ImGui"
 		"./*.cpp"
 	}
 
+	filter "system:emscripten"
 
-	filter "configurations:Debug"
-		defines "HZ_DEBUG"
-		runtime "Debug"
-		symbols "on"
-
-	filter "configurations:Release"
-		defines "HZ_RELEASE"
-		runtime "Release"
-		optimize "speed"
-		inlining "auto"
-
-	filter "configurations:Dist"
-		defines "HZ_DIST"
-		runtime "Release"
-		optimize "speed"
-		inlining "auto"
-
+		defines
+		{
+			"IMGUI_DISABLE_FILE_FUNCTIONS"
+		}
