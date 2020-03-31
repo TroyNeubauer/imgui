@@ -17,3 +17,10 @@ Makefile
 **/*.xcworkspace
 
 **/.DS_Store
+
+#Android
+**/AndroidManifest.xml
+.modules
+**/build.gradle
+**/CMakeLists.txt
+
